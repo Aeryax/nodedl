@@ -1,6 +1,6 @@
 {
   "name": "nodedl",
-  "version": "1.0.1a",
+  "version": "1.0.2",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -13,6 +13,11 @@
   "author": "aeryax",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.13.3"
+    "akeypair": "^0.2.4",
+    "colors": "^1.1.2",
+    "commander": "^2.9.0",
+    "express": "^4.13.3",
+    "external-ip": "^0.2.4",
+    "portfinder": "^0.4.0"
   }
 }
