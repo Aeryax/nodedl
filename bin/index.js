@@ -1,26 +1,35 @@
 #!/usr/bin/env node
 
 var app = require('express')();
-var http = require('http').Server(app);
+var http = require('http');
+var https = require('https');
 var os = require('os');
 var crypto = require('crypto');
 var path = require('path');
 var getIP = require('external-ip')();
-var pkg = require(__dirname, '/package.json');
+var pkg = require(path.join(__dirname, 'package.json'));
 var program = require('commander');
 var portfinder = require('portfinder');
+var colors = require('colors');
+var akeypair = require('akeypair');
+
+var file;
 
 program
 	.version(pkg.version)
 	.description(pkg.description)
-	.option('-p, --port <port>', 'Port on which to listen to (defaults to 3000)', parseInt)
-	.option('-f, --file <filename>', 'Filename to stream', '')
-	.option('-u, --url <path>', 'Specify url string (default is random)', '')
-	.option('-e, --end <type>', 'Set the end type, at the end of download or date (defaut end of download)', parseInt)
+	.arguments('<filename>')
+	.action(function (filename) {
+		file = filename;
+	})
+	.option('-p, --port <port>', 'port on which to listen to (defaults to 3000)', parseInt)
+	.option('-u, --url <path>', 'specify url string (default is random)', '')
+	.option('-e, --end <type>', 'set the end type, at the end of download (0) or date (1) (defaut end of download)', parseInt)
+	.option('-s, --secure', 'use https protocol', true)
 	.parse(process.argv);
 
-if (program.file === '') {
-	console.log('use -f or --file <path> to specify input file');
+if (typeof file === 'undefined') {
+	program.outputHelp(colors.red);
 	process.exit(1);
 }
 
@@ -35,25 +44,43 @@ function randomValueBase64(len) {
 var addresses = [];
 var lock = 0;
 const LOCK_MAX = 3;
-var url = randomValueBase64(24);
+var url = program.url || randomValueBase64(24);
 var dir = path.resolve('./');
 var randomPort = 8000;
+var end = program.end || 0;
 
 var start = function () {
 	lock++;
 	if (lock === LOCK_MAX) {
 		var port = program.port || randomPort;
-		http.listen(port, function () {
-			for (var i = 0; i < addresses.length; i++) {
-				console.log('http://' + addresses[i] + ':' + port + '/' + url);
-			}
-		});
+		if (program.secure) {
+			akeypair({cert: true}, function (err, options) {
+				if (err) {
+					console.log(colors.red('can\'t create certificates...'));
+					process.exit(1);
+				}
+				var httpsServer = https.createServer(options, app);
+				httpsServer.listen(port, function () {
+					for (var i = 0; i < addresses.length; i++) {
+						console.log(colors.yellow('https://' + addresses[i] + ':' + port + '/' + url));
+					}
+				});
+			});
+		}
+		else {
+			var httpServer = http.createServer(app);
+			httpServer.listen(port, function () {
+				for (var i = 0; i < addresses.length; i++) {
+					console.log(colors.yellow('http://' + addresses[i] + ':' + port + '/' + url));
+				}
+			});
+		}
 	}
 };
 
 portfinder.getPort(function (err, port) {
 	if (err) {
-		console.log('failed to find an open port, please try again...');
+		console.log(colors.red('failed to find an open port, please try again...'));
 		process.exit(1);
 	}
 	randomPort = port;
@@ -62,7 +89,7 @@ portfinder.getPort(function (err, port) {
 
 getIP(function (err, ip) {
 	if (err) {
-		console.log('Can\'t check public ip address !');
+		console.log(colors.red('can\'t check public ip address !'));
 	}
 	addresses.push(ip);
 	start();
@@ -80,7 +107,16 @@ for (var k in interfaces) {
 }
 
 app.get('/' + url, function (req, res) {
-	res.download(dir + '/' + process.argv[process.argv.length - 1], process.argv[process.argv.length - 1]);
+	res.download(dir + '/' + file, file, function (err) {
+		if (err) {
+			// Handle error, but keep in mind the response may be partially-sent
+			// so check res.headersSent
+			// TODO ?
+		} else if (end === 0) {
+			console.log(colors.green('download successful !'));
+			process.exit(0);
+		}
+	});
 });
 
 start();

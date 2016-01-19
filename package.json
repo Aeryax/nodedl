@@ -1,7 +1,7 @@
 {
   "name": "nodedl",
-  "version": "1.0.2",
-  "description": "",
+  "version": "1.0.3",
+  "description": "an easy way to stream your file from command line",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -19,5 +19,20 @@
     "express": "^4.13.3",
     "external-ip": "^0.2.4",
     "portfinder": "^0.4.0"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Aeryax/nodedl.git"
+  },
+  "keywords": [
+    "stream",
+    "file",
+    "command",
+    "line"
+  ],
+  "bugs": {
+    "url": "https://github.com/Aeryax/nodedl/issues"
+  },
+  "homepage": "https://github.com/Aeryax/nodedl"
 }
