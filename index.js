@@ -22,9 +22,9 @@ program
 	.action(function (filename) {
 		file = filename;
 	})
-	.option('-p, --port <port>', 'port on which to listen to (defaults to 3000)', parseInt)
-	.option('-u, --url <path>', 'specify url string (default is random)', '')
-	.option('-e, --end <type>', 'set the end type, at the end of download (0) or date (1) (defaut end of download)', parseInt)
+	.option('-p, --port <port>', 'set port on which to listen to (defaults to 3000)', parseInt)
+	.option('-u, --url <url>', 'set url path to access file (defaults is a random string[24])', '')
+	.option('-e, --end <end>', 'set end of stream: once downloaded (0) or expiration date (1) (defauts 0)', parseInt)
 	.option('-s, --secure', 'use https protocol', true)
 	.parse(process.argv);
 
@@ -56,7 +56,7 @@ var start = function () {
 		if (program.secure) {
 			akeypair({cert: true}, function (err, options) {
 				if (err) {
-					console.log(colors.red('can\'t create certificates...'));
+					console.log(colors.red('can\'t generate certificates...'));
 					process.exit(1);
 				}
 				var httpsServer = https.createServer(options, app);
@@ -64,6 +64,8 @@ var start = function () {
 					for (var i = 0; i < addresses.length; i++) {
 						console.log(colors.yellow('https://' + addresses[i] + ':' + port + '/' + url));
 					}
+					console.log(colors.red('if you are behind a NAT, please check port-forwarding !'));
+					console.log(colors.red('certificates are auto-generated so you need to add them in your exceptions list.'));
 				});
 			});
 		}
@@ -73,19 +75,22 @@ var start = function () {
 				for (var i = 0; i < addresses.length; i++) {
 					console.log(colors.yellow('http://' + addresses[i] + ':' + port + '/' + url));
 				}
+				console.log(colors.red('if you are behind a NAT, please check port-forwarding !'));
 			});
 		}
 	}
 };
 
-portfinder.getPort(function (err, port) {
-	if (err) {
-		console.log(colors.red('failed to find an open port, please try again...'));
-		process.exit(1);
-	}
-	randomPort = port;
-	start();
-});
+if (!program.port) {
+	portfinder.getPort(function (err, port) {
+		if (err) {
+			console.log(colors.red('failed to find an open port, please try again...'));
+			process.exit(1);
+		}
+		randomPort = port;
+		start();
+	});
+}
 
 getIP(function (err, ip) {
 	if (err) {
@@ -106,14 +111,36 @@ for (var k in interfaces) {
 	}
 }
 
+var dateDiff = function (date1, date2) {
+	var diff = {};
+	var tmp = date2 - date1;
+
+	tmp = Math.floor(tmp / 1000);
+	diff.sec = tmp % 60;
+
+	tmp = Math.floor((tmp - diff.sec) / 60);
+	diff.min = tmp % 60;
+
+	tmp = Math.floor((tmp - diff.min) / 60);
+	diff.hour = tmp % 24;
+
+	tmp = Math.floor((tmp - diff.hour) / 24);
+	diff.day = tmp;
+
+	return diff;
+};
+
 app.get('/' + url, function (req, res) {
+	var beginTime = new Date().getTime();
 	res.download(dir + '/' + file, file, function (err) {
 		if (err) {
 			// Handle error, but keep in mind the response may be partially-sent
 			// so check res.headersSent
 			// TODO ?
 		} else if (end === 0) {
-			console.log(colors.green('download successful !'));
+			var endTime = new Date().getTime();
+			var result = dateDiff(beginTime, endTime);
+			console.log(colors.green('download successful (' + result.day + ' day(s) ' + result.hour + ' hour(s) ' + result.min + ' min(s) ' + result.sec + ' sec(s)) !'));
 			process.exit(0);
 		}
 	});
